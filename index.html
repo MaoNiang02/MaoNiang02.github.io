@@ -2,8 +2,58 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8" />
-<title>Camera Distance Controlled Particle Christmas Tree</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>交互式粒子圣诞树 | 手势控制</title>
+<meta name="description" content="使用摄像头手势控制的交互式粒子圣诞树，手靠近树变大，远离树变小，支持火花特效和飘雪背景">
+<meta name="keywords" content="粒子特效, 圣诞树, 手势识别, 交互式, 摄像头, MediaPipe, 网页特效">
+<meta name="author" content="Your Name">
+<link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+
 <style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  #introPage {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.95);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-size: clamp(16px, 3vw, 20px);
+    padding: 20px;
+    z-index: 9999;
+    text-align: center;
+    overflow-y: auto;
+  }
+  #introPage h2 {
+    margin-bottom: 20px;
+    color: #3fa9f5;
+  }
+  #introPage p {
+    margin: 8px 0;
+    font-size: clamp(14px, 2.5vw, 18px);
+  }
+  #introPage button {
+    margin-top: 30px;
+    padding: 12px 28px;
+    font-size: clamp(16px, 2.5vw, 18px);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background: #3fa9f5;
+    color: white;
+    transition: background 0.3s;
+    font-weight: 500;
+  }
+  #introPage button:hover {
+    background: #2d8dd6;
+  }
+  
   body {
     margin: 0;
     background: #02040a;
@@ -13,37 +63,353 @@
     height: 100vh;
     overflow: hidden;
     color: white;
-    font-family: sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   }
+  
   #treeCanvas {
     display: block;
     width: 100vw;
     height: 100vh;
+    will-change: transform;
+    image-rendering: optimizeSpeed;
   }
+  
   #videoFeed {
     position: fixed;
     right: 10px;
     bottom: 10px;
-    width: 160px;
-    opacity: 0.3;
-    border: 2px solid white;
+    width: 120px;
+    height: 90px;
+    opacity: 0.25;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 4px;
+    pointer-events: none;
+    object-fit: cover;
+  }
+  
+  #controlPanel {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 100;
+  }
+  
+  .controlBtn {
+    padding: 10px 16px;
+    font-size: 14px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    background: rgba(63, 169, 245, 0.8);
+    color: white;
+    backdrop-filter: blur(4px);
+    transition: all 0.3s;
+    font-weight: 500;
+  }
+  
+  .controlBtn:hover {
+    background: rgba(63, 169, 245, 1);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(63, 169, 245, 0.3);
+  }
+  
+  .controlBtn.pause {
+    background: rgba(255, 100, 100, 0.8);
+  }
+  
+  .controlBtn.pause:hover {
+    background: rgba(255, 100, 100, 1);
+    box-shadow: 0 4px 12px rgba(255, 100, 100, 0.3);
+  }
+  
+  #fpsDisplay {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #0f0;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 14px;
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    border: 1px solid rgba(0, 255, 0, 0.2);
+  }
+  
+  #mobileWarning {
+    display: none;
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: #ffcc00;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 12px;
+    text-align: center;
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    border: 1px solid rgba(255, 204, 0, 0.3);
+    max-width: 90%;
+  }
+  
+  #loading {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #3fa9f5;
+    font-size: 18px;
+    z-index: 9998;
+    background: rgba(0,0,0,0.7);
+    padding: 20px 30px;
+    border-radius: 10px;
+    display: none;
+  }
+  
+  @media (max-width: 768px) {
+    #controlPanel {
+      top: 10px;
+      left: 10px;
+    }
+    
+    #fpsDisplay {
+      top: 10px;
+      right: 10px;
+      font-size: 12px;
+      padding: 6px 10px;
+    }
+    
+    #videoFeed {
+      width: 80px;
+      height: 60px;
+      right: 5px;
+      bottom: 5px;
+    }
+    
+    #mobileWarning {
+      display: block;
+    }
+    
+    #introPage {
+      padding: 15px;
+    }
+    
+    #introPage h2 {
+      font-size: 1.5em;
+      margin-bottom: 15px;
+    }
+    
+    #introPage p {
+      font-size: 0.9em;
+      margin: 5px 0;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    #controlPanel {
+      flex-direction: row;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      justify-content: center;
+    }
+    
+    .controlBtn {
+      padding: 8px 12px;
+      font-size: 12px;
+      flex: 1;
+      text-align: center;
+    }
+    
+    #videoFeed {
+      width: 60px;
+      height: 45px;
+      right: 5px;
+      bottom: 5px;
+    }
+  }
+  
+  @media (max-height: 600px) {
+    #introPage {
+      justify-content: flex-start;
+      padding-top: 40px;
+      overflow-y: auto;
+    }
+    
+    #introPage h2 {
+      margin-bottom: 10px;
+    }
+    
+    #introPage p {
+      margin: 4px 0;
+    }
+    
+    #introPage button {
+      margin-top: 15px;
+      margin-bottom: 20px;
+    }
   }
 </style>
 </head>
 
 <body>
+<div id="introPage">
+  <div>
+    <h2>✨ 粒子圣诞树使用说明 ✨</h2>
+    <p>📌 请确保摄像头已开启，把手放到摄像头前即可互动：</p>
+    <p>🖐 手靠近摄像头：树变大</p>
+    <p>🖐 手远离摄像头：树变小</p>
+    <p>↔️ 手左右移动：树左右移动</p>
+    <p>↕️ 手上下移动：树上下移动</p>
+    <p>🔥 快速靠近摄像头：触发火花特效</p>
+    <p>❄️ 背景会自动飘雪</p>
+    <p>⭐ 星星位置会自动同步树体摆动</p>
+    <p style="color: #3fa9f5; margin-top: 20px;">
+      提示：左上角可控制暂停/播放，右上角显示FPS
+    </p>
+  </div>
+  <button onclick="closeIntro()">
+    我知道了，开始体验！
+  </button>
+</div>
+
+<div id="controlPanel">
+  <button id="pauseBtn" class="controlBtn" onclick="togglePause()">暂停动画</button>
+  <button id="performanceBtn" class="controlBtn" onclick="togglePerformanceMode()">性能模式</button>
+</div>
+
+<div id="fpsDisplay">FPS: 0</div>
+<div id="mobileWarning">⚠️ 移动端性能有限，已自动降低粒子数量</div>
+<div id="loading">正在加载摄像头和手势识别...</div>
 
 <canvas id="treeCanvas"></canvas>
-<video id="videoFeed" autoplay playsinline></video>
+<video id="videoFeed" autoplay playsinline muted></video>
 
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<!-- 使用稳定的CDN链接 -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1646424815/camera_utils.min.js"></script>
+
 <script>
-// ==== 粒子圣诞树 + 摄像头距离控制大小 ====
-
+// ====== 全局变量和配置 ======
 const canvas = document.getElementById("treeCanvas");
 const ctx = canvas.getContext("2d");
+const video = document.getElementById("videoFeed");
+const pauseBtn = document.getElementById("pauseBtn");
+const fpsDisplay = document.getElementById("fpsDisplay");
+const loading = document.getElementById("loading");
+const mobileWarning = document.getElementById("mobileWarning");
 
+// 性能配置
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+let performanceMode = isMobile;
+let isPaused = false;
+let animationRunning = true;
+let cameraStarted = false;
+
+// 动态粒子数量
+const getParticleCount = () => {
+  if (performanceMode) {
+    return Math.min(800, Math.floor(window.innerWidth * window.innerHeight / 1200));
+  }
+  return Math.min(2600, Math.floor(window.innerWidth * window.innerHeight / 400));
+};
+
+// ====== 确保Camera类可用 ======
+// 如果Camera类未定义，创建自定义实现
+if (typeof Camera === 'undefined') {
+  console.log('创建自定义Camera类');
+  window.Camera = class Camera {
+    constructor(videoElement, options) {
+      this.video = videoElement;
+      this.onFrame = options.onFrame;
+      this.facingMode = options.facingMode || 'user';
+      this.width = options.width || 640;
+      this.height = options.height || 480;
+      this.stream = null;
+      this.isRunning = false;
+    }
+    
+    async start() {
+      try {
+        console.log('开始获取摄像头权限...');
+        const constraints = {
+          video: {
+            facingMode: this.facingMode,
+            width: { ideal: this.width },
+            height: { ideal: this.height }
+          },
+          audio: false
+        };
+        
+        this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log('摄像头权限获取成功');
+        
+        this.video.srcObject = this.stream;
+        
+        // 等待视频准备就绪
+        await new Promise((resolve, reject) => {
+          this.video.onloadedmetadata = () => {
+            console.log('视频元数据加载完成');
+            this.video.play().then(() => {
+              console.log('视频开始播放');
+              this.isRunning = true;
+              this.processFrames();
+              resolve();
+            }).catch(reject);
+          };
+          
+          this.video.onerror = reject;
+          
+          // 超时处理
+          setTimeout(() => {
+            if (!this.isRunning) {
+              reject(new Error('视频加载超时'));
+            }
+          }, 5000);
+        });
+        
+        return this;
+      } catch (error) {
+        console.error('Camera启动失败:', error);
+        this.isRunning = false;
+        throw error;
+      }
+    }
+    
+    processFrames() {
+      const processFrame = async () => {
+        if (this.isRunning && this.video.readyState >= 2) {
+          try {
+            await this.onFrame();
+          } catch (error) {
+            console.warn('处理帧时出错:', error);
+          }
+          requestAnimationFrame(processFrame);
+        }
+      };
+      processFrame();
+    }
+    
+    stop() {
+      this.isRunning = false;
+      if (this.stream) {
+        this.stream.getTracks().forEach(track => {
+          track.stop();
+        });
+        this.stream = null;
+      }
+    }
+  };
+}
+
+// ====== 初始化画布 ======
 function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -51,27 +417,106 @@ function resizeCanvas() {
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
-const video = document.getElementById("videoFeed");
-
-let scaleFactor = 1.0;
-
-// ===== MediaPipe Hands 检测手距离控制大小 =====
-
+// ====== 手势识别设置 ======
 const hands = new Hands({
-  locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+  locateFile: (file) => {
+    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`;
+  }
 });
 
 hands.setOptions({
   maxNumHands: 1,
-  modelComplexity: 1,
+  modelComplexity: performanceMode ? 0 : 1,
   minDetectionConfidence: 0.5,
   minTrackingConfidence: 0.5
 });
 
-hands.onResults((results) => {
-  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-    const hand = results.multiHandLandmarks[0];
-
+// ====== 粒子系统 ======
+class ParticleSystem {
+  constructor() {
+    this.particles = [];
+    this.lights = [];
+    this.snow = [];
+    this.sparks = [];
+    this.scaleFactor = 1.0;
+    this.treeOffsetX = 0;
+    this.treeOffsetY = 0;
+    this.sparkCooldown = 0;
+    this.SPARK_COOLDOWN = 300;
+    this.time = 0;
+    this.initializeParticles();
+  }
+  
+  initializeParticles() {
+    const particleCount = getParticleCount();
+    this.particles = [];
+    for (let i = 0; i < particleCount; i++) {
+      this.particles.push(this.createTreeParticle());
+    }
+    
+    const lightCount = performanceMode ? 80 : 160;
+    this.lights = [];
+    for (let i = 0; i < lightCount; i++) {
+      this.lights.push(this.createLightParticle());
+    }
+    
+    const snowCount = performanceMode ? 80 : 150;
+    this.snow = [];
+    for (let i = 0; i < snowCount; i++) {
+      this.snow.push(this.createSnowParticle());
+    }
+  }
+  
+  createTreeParticle() {
+    const y = Math.random();
+    const spread = y * 200;
+    
+    return {
+      x: canvas.width / 2 + (Math.random() * 2 - 1) * spread,
+      y: canvas.height * 0.1 + y * (canvas.height * 0.7),
+      size: 1 + Math.random() * 2,
+      alpha: 0.4 + Math.random() * 0.6,
+      color: `rgba(${40 + Math.random()*30}, ${160 + Math.random()*50}, ${40 + Math.random()*40},`,
+      swayOffset: Math.random() * Math.PI * 2
+    };
+  }
+  
+  createLightParticle() {
+    const lightColors = [
+      "rgba(255, 80, 80,",
+      "rgba(80, 170, 255,",
+      "rgba(255, 220, 80,",
+      "rgba(120, 255, 120,"
+    ];
+    
+    const y = Math.random();
+    const spread = y * 180;
+    
+    return {
+      x: canvas.width / 2 + (Math.random() * 2 - 1) * spread,
+      y: canvas.height * 0.15 + y * (canvas.height * 0.65),
+      size: performanceMode ? 2 : 2.5,
+      alpha: 0.3 + Math.random() * 0.7,
+      color: lightColors[Math.floor(Math.random() * lightColors.length)],
+      blinkSpeed: Math.random() * 0.05 + 0.02,
+      blinkOffset: Math.random() * Math.PI * 2
+    };
+  }
+  
+  createSnowParticle() {
+    return {
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * (performanceMode ? 1.5 : 2) + 1,
+      speed: Math.random() * (performanceMode ? 0.8 : 1) + 0.5,
+      alpha: Math.random() * 0.8 + 0.2,
+      drift: (Math.random() - 0.5) * 0.5
+    };
+  }
+  
+  updateFromHandData(hand, timestamp) {
+    if (!hand) return;
+    
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     hand.forEach(pt => {
       minX = Math.min(minX, pt.x);
@@ -79,19 +524,41 @@ hands.onResults((results) => {
       minY = Math.min(minY, pt.y);
       maxY = Math.max(maxY, pt.y);
     });
-
+    
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    
+    // 平滑移动
+    const targetX = (centerX - 0.5) * canvas.width * 0.4;
+    const targetY = (centerY - 0.5) * canvas.height * 0.35;
+    const lerpFactor = 0.15;
+    
+    this.treeOffsetX += (targetX - this.treeOffsetX) * lerpFactor;
+    this.treeOffsetY += (targetY - this.treeOffsetY) * lerpFactor;
+    
+    // 限制范围
+    const maxOffsetX = canvas.width * 0.25;
+    const maxOffsetY = canvas.height * 0.25;
+    this.treeOffsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, this.treeOffsetX));
+    this.treeOffsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, this.treeOffsetY));
+    
     const boxW = maxX - minX;
     const boxH = maxY - minY;
     const handSize = Math.max(boxW, boxH);
-
-    scaleFactor = 0.4 + handSize * 3.0;
-
-    // 🔥 火花触发（手变大快速靠近时）
-    if (handSize > 0.28) {
-      for (let i = 0; i < 40; i++) {
-        sparks.push({
-          x: canvas.width/2,
-          y: canvas.height/2,
+    
+    this.scaleFactor = Math.max(0.3, Math.min(2.0, 0.4 + handSize * 3.0));
+    
+    // 火花效果
+    if (handSize > 0.28 && timestamp - this.sparkCooldown > this.SPARK_COOLDOWN) {
+      this.sparkCooldown = timestamp;
+      const sparkCenterX = canvas.width / 2 + this.treeOffsetX;
+      const sparkCenterY = canvas.height / 2 + this.treeOffsetY;
+      const sparkCount = performanceMode ? 20 : 40;
+      
+      for (let i = 0; i < sparkCount; i++) {
+        this.sparks.push({
+          x: sparkCenterX,
+          y: sparkCenterY,
           vx: (Math.random()*2-1)*6,
           vy: (Math.random()*2-1)*6,
           life: 30
@@ -99,200 +566,437 @@ hands.onResults((results) => {
       }
     }
   }
-});
-
-const camera = new Camera(video, {
-  onFrame: async () => {
-    await hands.send({ image: video });
-  },
-  facingMode: "user",
-  width: 640,
-  height: 480
-});
-
-camera.start();
-
-// ==== 粒子圣诞树创建 ====
-
-const particles = [];
-const totalParticles = 2600;  // 增加粒子数量
-
-function createParticle() {
-  const y = Math.random(); // 0 → 1 从树顶到底
-  const spread = y * 200;
-
-  return {
-    x: canvas.width / 2 + (Math.random() * 2 - 1) * spread,
-    y: canvas.height * 0.1 + y * (canvas.height * 0.7),
-    size: 1 + Math.random() * 2,
-    alpha: 0.4 + Math.random() * 0.6,
-    color: `rgba(${40 + Math.random()*30}, ${160 + Math.random()*50}, ${40 + Math.random()*40},`
-  };
-}
-
-for (let i = 0; i < totalParticles; i++) {
-  particles.push(createParticle());
-}
-
-// ==== 添加星星与灯光粒子 ====
-
-const starParticles = [];
-const starCount = 80;
-
-function createStarParticle() {
-  return {
-    x: canvas.width / 2 + (Math.random() * 16 - 8),
-    y: 65 + Math.random() * 20,
-    size: 2 + Math.random() * 2,
-    alpha: 0.7 + Math.random() * 0.3,
-    twinkleSpeed: Math.random() * 0.04 + 0.02,
-    color: "rgba(255, 255, 180,"
-  };
-}
-
-for (let i = 0; i < starCount; i++) {
-  starParticles.push(createStarParticle());
-}
-
-const lightParticles = [];
-const lightColors = [
-  "rgba(255, 80, 80,",
-  "rgba(80, 170, 255,",
-  "rgba(255, 220, 80,",
-  "rgba(120, 255, 120,"
-];
-const lightCount = 160;
-
-function createLightParticle() {
-  const y = Math.random();
-  const spread = y * 180;
-
-  return {
-    x: canvas.width / 2 + (Math.random() * 2 - 1) * spread,
-    y: canvas.height * 0.15 + y * (canvas.height * 0.65),
-    size: 2.5,
-    alpha: 0.3 + Math.random() * 0.7,
-    color: lightColors[Math.floor(Math.random() * lightColors.length)],
-    blinkSpeed: Math.random() * 0.05 + 0.02
-  };
-}
-
-for (let i = 0; i < lightCount; i++) {
-  lightParticles.push(createLightParticle());
-}
-
-// ---- 背景雪粒子 ----
-const snow = [];
-for (let i = 0; i < 150; i++) {
-  snow.push({
-    x: Math.random() * canvas.width,
-    y: Math.random() * canvas.height,
-    r: Math.random() * 2 + 1,
-    speed: Math.random() * 1 + 0.5,
-    alpha: Math.random() * 0.8 + 0.2
-  });
-}
-
-const sparks = [];
-
-function animate() {
-  const t = Date.now() * 0.0005;
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  ctx.save();
-  ctx.translate(canvas.width/2, canvas.height/2);
-  ctx.rotate(0);  // 移除旋转，保持正向
-  ctx.scale(scaleFactor, scaleFactor);
-  ctx.translate(-canvas.width/2, -canvas.height/2);
-
-  // ✨ 模糊光晕
-  ctx.shadowBlur = 10;  // 降低模糊强度提升流畅度
-  ctx.shadowColor = "rgba(80,255,160,0.7)";
-
-  particles.forEach(p => {
-    p.x += Math.sin(t + p.y * 0.01) * 0.06;  // 再减小摆动幅度
-    ctx.fillStyle = p.color + p.alpha + ")";
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-    ctx.fill();
-
-    p.alpha += (Math.random() - 0.5) * 0.03;
-    p.alpha = Math.max(0.2, Math.min(1, p.alpha));
-  });
-
-  const starOffsetX = Math.sin(t) * 1; // 减小星星摆动幅度
-  // 绘制真实五角星（交错内外点）
-  ctx.save();
-  ctx.translate(canvas.width / 2 + starOffsetX, canvas.height * 0.11); // 星星位置（随树摆动）
-  ctx.scale(1.4, 1.4);
-
-  ctx.beginPath();
-  const outerR = 20;
-  const innerR = 8;
-  for (let i = 0; i < 10; i++) {
-    const angle = (i * 36 - 90) * Math.PI / 180;
-    const r = i % 2 === 0 ? outerR : innerR;
-    const x = Math.cos(angle) * r;
-    const y = Math.sin(angle) * r;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-  ctx.closePath();
-
-  ctx.fillStyle = "rgba(255, 255, 180, 1)";
-  ctx.shadowBlur = 30;   // 降低星星模糊以提升性能
-  ctx.shadowColor = "rgba(255,255,200,0.9)";
-  ctx.fill();
-
-  ctx.restore();
-
-  // 绘制彩灯粒子
-  lightParticles.forEach(l => {
-    ctx.fillStyle = l.color + l.alpha + ")";
-    ctx.beginPath();
-    ctx.arc(l.x, l.y, l.size, 0, Math.PI * 2);
-    ctx.fill();
-
-    l.alpha += l.blinkSpeed * (Math.random() - 0.5);
-    if (l.alpha > 1) l.alpha = 1;
-    if (l.alpha < 0.2) l.alpha = 0.2;
-  });
-
-  // 🔥 火花渲染
-  for (let i = sparks.length - 1; i >= 0; i--) {
-    const s = sparks[i];
-    ctx.fillStyle = "rgba(255,200,80," + (s.life / 30) + ")";
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, 3, 0, Math.PI * 2);
-    ctx.fill();
-    s.x += s.vx;
-    s.y += s.vy;
-    s.life--;
-    if (s.life <= 0) sparks.splice(i,1);
-  }
-
-  // ❄️ 背景飘雪
-  snow.forEach(s => {
-    ctx.fillStyle = "rgba(255,255,255," + s.alpha + ")";
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-    ctx.fill();
-    s.y += s.speed;
-    if (s.y > canvas.height) {
-      s.y = -10;
-      s.x = Math.random() * canvas.width;
+  
+  update(deltaTime) {
+    this.time += deltaTime;
+    
+    // 更新火花
+    for (let i = this.sparks.length - 1; i >= 0; i--) {
+      const s = this.sparks[i];
+      s.x += s.vx;
+      s.y += s.vy;
+      s.vx *= 0.95;
+      s.vy *= 0.95;
+      s.life--;
+      if (s.life <= 0) this.sparks.splice(i, 1);
     }
-  });
-
-  ctx.restore();
-
-  requestAnimationFrame(animate);
+    
+    // 更新雪花
+    this.snow.forEach(s => {
+      s.y += s.speed;
+      s.x += s.drift;
+      if (s.y > canvas.height) {
+        s.y = -10;
+        s.x = Math.random() * canvas.width;
+      }
+      if (s.x < -10) s.x = canvas.width + 10;
+      if (s.x > canvas.width + 10) s.x = -10;
+    });
+    
+    // 更新彩灯闪烁
+    this.lights.forEach(l => {
+      l.alpha = 0.3 + Math.sin(this.time * l.blinkSpeed + l.blinkOffset) * 0.35 + 0.35;
+    });
+  }
+  
+  draw() {
+    const sway = Math.sin(this.time * 0.5) * 0.06;
+    
+    ctx.save();
+    ctx.translate(canvas.width/2 + this.treeOffsetX, canvas.height/2 + this.treeOffsetY);
+    ctx.scale(this.scaleFactor, this.scaleFactor);
+    ctx.translate(-canvas.width/2 - this.treeOffsetX, -canvas.height/2 - this.treeOffsetY);
+    
+    // 树粒子
+    ctx.shadowBlur = performanceMode ? 4 : 6;
+    ctx.shadowColor = "rgba(80,255,160,0.7)";
+    
+    this.particles.forEach(p => {
+      const particleSway = Math.sin(this.time * 0.5 + p.swayOffset) * 0.03;
+      ctx.fillStyle = p.color + p.alpha + ")";
+      ctx.beginPath();
+      ctx.arc(p.x + particleSway * 50, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    
+    // 绘制星星
+    const starOffsetX = sway * 16;
+    ctx.save();
+    ctx.translate(canvas.width / 2 + starOffsetX, canvas.height * 0.1 - 25);
+    ctx.scale(1.4, 1.4);
+    
+    // 绘制五角星
+    ctx.beginPath();
+    const outerR = 20;
+    const innerR = 8;
+    for (let i = 0; i < 10; i++) {
+      const angle = (i * 36 - 90) * Math.PI / 180;
+      const r = i % 2 === 0 ? outerR : innerR;
+      const x = Math.cos(angle) * r;
+      const y = Math.sin(angle) * r;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    
+    // 星星发光效果
+    const starGlow = 0.7 + Math.sin(this.time * 2) * 0.3;
+    ctx.fillStyle = `rgba(255, 255, 180, ${starGlow})`;
+    ctx.shadowBlur = performanceMode ? 12 : 18;
+    ctx.shadowColor = "rgba(255,255,200,0.9)";
+    ctx.fill();
+    
+    // 星星内层高光
+    ctx.beginPath();
+    ctx.arc(0, 0, 5, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255, 255, 220, ${0.5 + starGlow * 0.5})`;
+    ctx.shadowBlur = 8;
+    ctx.fill();
+    
+    ctx.restore();
+    
+    // 彩灯
+    this.lights.forEach(l => {
+      ctx.fillStyle = l.color + l.alpha + ")";
+      ctx.beginPath();
+      ctx.arc(l.x, l.y, l.size, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // 灯光光晕
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = l.color.replace('rgba(', '').split(',')[0] + ',' + 
+                        l.color.replace('rgba(', '').split(',')[1] + ',' +
+                        l.color.replace('rgba(', '').split(',')[2].split(')')[0] + ',0.5)';
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    });
+    
+    // 火花
+    this.sparks.forEach(s => {
+      const sparkAlpha = s.life / 30;
+      ctx.fillStyle = `rgba(255,${200 - s.life},${80 - s.life},${sparkAlpha})`;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 3 * sparkAlpha, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    
+    // 雪花
+    ctx.shadowBlur = 0;
+    this.snow.forEach(s => {
+      ctx.fillStyle = "rgba(255,255,255," + s.alpha + ")";
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    
+    ctx.restore();
+  }
 }
 
-animate();
+// ====== 初始化系统 ======
+const particleSystem = new ParticleSystem();
 
+// ====== 手势识别回调 ======
+hands.onResults((results) => {
+  if (!isPaused && results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    particleSystem.updateFromHandData(results.multiHandLandmarks[0], Date.now());
+  }
+});
+
+// ====== 摄像头初始化 ======
+let camera;
+function initCamera() {
+  try {
+    camera = new Camera(video, {
+      onFrame: async () => {
+        if (!isPaused && animationRunning && cameraStarted) {
+          try {
+            await hands.send({ image: video });
+          } catch (e) {
+            console.warn('手势识别处理延迟:', e);
+          }
+        }
+      },
+      facingMode: "user",
+      width: performanceMode ? 320 : 640,
+      height: performanceMode ? 240 : 480
+    });
+    console.log('Camera初始化成功');
+  } catch (error) {
+    console.error('Camera初始化失败:', error);
+    throw error;
+  }
+}
+
+// ====== FPS 计数器 ======
+class FPSCounter {
+  constructor() {
+    this.fps = 0;
+    this.frameCount = 0;
+    this.lastTime = performance.now();
+    this.lastUpdate = this.lastTime;
+    this.frameTimes = [];
+  }
+  
+  update(currentTime) {
+    this.frameCount++;
+    const delta = currentTime - this.lastTime;
+    this.frameTimes.push(delta);
+    
+    if (this.frameTimes.length > 60) {
+      this.frameTimes.shift();
+    }
+    
+    if (currentTime - this.lastUpdate >= 1000) {
+      this.fps = Math.round(this.frameCount * 1000 / (currentTime - this.lastUpdate));
+      this.frameCount = 0;
+      this.lastUpdate = currentTime;
+      
+      // 计算平均帧时间
+      const avgFrameTime = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length;
+      
+      // 更新显示
+      fpsDisplay.textContent = `FPS: ${this.fps} ${performanceMode ? '🚀' : ''}`;
+      
+      // 如果帧率过低，建议性能模式
+      if (this.fps < 30 && !performanceMode && !isMobile) {
+        fpsDisplay.style.color = '#ff9900';
+        fpsDisplay.title = `平均帧时间: ${avgFrameTime.toFixed(1)}ms - 建议切换到性能模式`;
+      } else {
+        fpsDisplay.style.color = '#0f0';
+        fpsDisplay.title = `平均帧时间: ${avgFrameTime.toFixed(1)}ms`;
+      }
+    }
+    
+    this.lastTime = currentTime;
+    return delta;
+  }
+}
+
+const fpsCounter = new FPSCounter();
+
+// ====== 动画循环 ======
+let lastTimestamp = 0;
+function animate(timestamp) {
+  if (!lastTimestamp) lastTimestamp = timestamp;
+  const deltaTime = (timestamp - lastTimestamp) / 1000;
+  lastTimestamp = timestamp;
+  
+  if (!isPaused) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    particleSystem.update(deltaTime);
+    particleSystem.draw();
+    
+    fpsCounter.update(timestamp);
+  }
+  
+  if (animationRunning) {
+    requestAnimationFrame(animate);
+  }
+}
+
+// ====== 控制函数 ======
+function closeIntro() {
+  document.getElementById('introPage').style.display = 'none';
+  if (!animationRunning) {
+    animationRunning = true;
+    requestAnimationFrame(animate);
+  }
+}
+
+function togglePause() {
+  isPaused = !isPaused;
+  pauseBtn.textContent = isPaused ? '继续动画' : '暂停动画';
+  pauseBtn.classList.toggle('pause', isPaused);
+  
+  if (isPaused) {
+    video.style.opacity = '0.1';
+  } else {
+    video.style.opacity = '0.25';
+  }
+}
+
+function togglePerformanceMode() {
+  performanceMode = !performanceMode;
+  particleSystem.initializeParticles();
+  
+  const performanceBtn = document.getElementById('performanceBtn');
+  performanceBtn.textContent = performanceMode ? '画质模式' : '性能模式';
+  performanceBtn.title = performanceMode ? '切换到更高画质' : '切换到更好性能';
+  
+  if (performanceMode) {
+    hands.setOptions({ modelComplexity: 0 });
+    if (camera) {
+      camera.width = 320;
+      camera.height = 240;
+    }
+    mobileWarning.style.display = 'block';
+  } else {
+    hands.setOptions({ modelComplexity: 1 });
+    if (camera) {
+      camera.width = 640;
+      camera.height = 480;
+    }
+    mobileWarning.style.display = 'none';
+  }
+}
+
+// ====== 启动一切 ======
+async function init() {
+  try {
+    loading.style.display = 'block';
+    console.log('开始初始化...');
+    
+    // 检查浏览器支持
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      const errorMsg = '浏览器不支持getUserMedia API';
+      console.error(errorMsg);
+      alert('您的浏览器不支持摄像头功能，请使用最新版Chrome、Edge或Firefox浏览器。');
+      loading.style.display = 'none';
+      return;
+    }
+    
+    console.log('浏览器支持正常，开始检查摄像头...');
+    
+    // 初始化摄像头
+    initCamera();
+    
+    // 启动摄像头
+    try {
+      await camera.start();
+      cameraStarted = true;
+      console.log('摄像头启动成功');
+    } catch (error) {
+      console.error('摄像头启动失败:', error);
+      throw error;
+    }
+    
+    // 如果是移动设备，显示警告
+    if (isMobile) {
+      performanceMode = true;
+      const performanceBtn = document.getElementById('performanceBtn');
+      performanceBtn.textContent = '画质模式';
+      particleSystem.initializeParticles();
+      mobileWarning.style.display = 'block';
+      
+      // 移动端自动隐藏说明页
+      setTimeout(() => {
+        if (document.getElementById('introPage').style.display !== 'none') {
+          closeIntro();
+        }
+      }, 3000);
+    }
+    
+    // 启动动画循环
+    requestAnimationFrame(animate);
+    
+    loading.style.display = 'none';
+    console.log('粒子圣诞树初始化完成！');
+    
+  } catch (error) {
+    console.error('初始化失败:', error);
+    loading.style.display = 'none';
+    
+    let errorMsg = '摄像头初始化失败：';
+    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+      errorMsg = '❌ 摄像头权限被拒绝\n\n请点击地址栏的摄像头图标，允许此网站使用摄像头，然后刷新页面。';
+    } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+      errorMsg = '❌ 未找到摄像头设备\n\n请确保您的设备已连接摄像头，并已启用摄像头权限。';
+    } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+      errorMsg = '❌ 摄像头被其他程序占用\n\n请关闭其他使用摄像头的程序（如Zoom、微信等），然后刷新页面。';
+    } else if (error.name === 'OverconstrainedError') {
+      errorMsg = '❌ 摄像头配置不匹配\n\n请尝试使用其他浏览器或检查摄像头设置。';
+    } else {
+      errorMsg += error.message;
+    }
+    
+    // 显示友好的错误提示
+    const introPage = document.getElementById('introPage');
+    introPage.innerHTML = `
+      <div style="max-width: 500px;">
+        <h2 style="color: #ff6b6b;">❌ 摄像头初始化失败</h2>
+        <p style="text-align: left; margin: 20px 0; line-height: 1.6; white-space: pre-line;">${errorMsg}</p>
+        <div style="background: rgba(255,0,0,0.1); padding: 15px; border-radius: 8px; margin: 20px 0; text-align: left;">
+          <p style="margin: 5px 0;">💡 解决方案：</p>
+          <p style="margin: 5px 0;">1. 检查浏览器摄像头权限设置</p>
+          <p style="margin: 5px 0;">2. 确保没有其他程序占用摄像头</p>
+          <p style="margin: 5px 0;">3. 尝试使用 Chrome 或 Edge 浏览器</p>
+          <p style="margin: 5px 0;">4. 刷新页面重试</p>
+        </div>
+        <button onclick="location.reload()" style="margin-top: 20px;">
+          🔄 刷新页面重试
+        </button>
+        <button onclick="closeIntro()" style="margin-top: 10px; background: #666;">
+          👁️ 仅观看演示（无手势控制）
+        </button>
+      </div>
+    `;
+    introPage.style.display = 'flex';
+  }
+}
+
+// ====== 事件监听 ======
+window.addEventListener('load', init);
+
+window.addEventListener('resize', () => {
+  resizeCanvas();
+  particleSystem.initializeParticles();
+});
+
+window.addEventListener('blur', () => {
+  if (!isPaused) {
+    isPaused = true;
+    pauseBtn.textContent = '继续动画';
+    pauseBtn.classList.add('pause');
+    video.style.opacity = '0.1';
+  }
+});
+
+window.addEventListener('focus', () => {
+  if (isPaused) {
+    isPaused = false;
+    pauseBtn.textContent = '暂停动画';
+    pauseBtn.classList.remove('pause');
+    video.style.opacity = '0.25';
+  }
+});
+
+// 防止右键菜单
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// 键盘快捷键
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    togglePause();
+  }
+  if (e.code === 'KeyP') {
+    e.preventDefault();
+    togglePerformanceMode();
+  }
+  if (e.code === 'Escape' && document.getElementById('introPage').style.display === 'none') {
+    document.getElementById('introPage').style.display = 'flex';
+  }
+});
+
+// 触摸设备支持
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  if (e.touches.length === 2) {
+    togglePerformanceMode();
+  }
+});
+
+// 页面可见性API
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && !isPaused) {
+    isPaused = true;
+    pauseBtn.textContent = '继续动画';
+    pauseBtn.classList.add('pause');
+    video.style.opacity = '0.1';
+  }
+});
 </script>
-
 </body>
 </html>
