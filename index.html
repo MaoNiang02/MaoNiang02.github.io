@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<title>Camera Distance Controlled Particle Christmas Tree</title>
+<style>
+  body {
+    margin: 0;
+    background: #02040a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+    color: white;
+    font-family: sans-serif;
+  }
+  #treeCanvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+  }
+  #videoFeed {
+    position: fixed;
+    right: 10px;
+    bottom: 10px;
+    width: 160px;
+    opacity: 0.3;
+    border: 2px solid white;
+  }
+</style>
+</head>
+
+<body>
+
+<canvas id="treeCanvas"></canvas>
+<video id="videoFeed" autoplay playsinline></video>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script>
+// ==== 粒子圣诞树 + 摄像头距离控制大小 ====
+
+const canvas = document.getElementById("treeCanvas");
+const ctx = canvas.getContext("2d");
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
+
+const video = document.getElementById("videoFeed");
+
+let scaleFactor = 1.0;
+
+// ===== MediaPipe Hands 检测手距离控制大小 =====
+
+const hands = new Hands({
+  locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+});
+
+hands.setOptions({
+  maxNumHands: 1,
+  modelComplexity: 1,
+  minDetectionConfidence: 0.5,
+  minTrackingConfidence: 0.5
+});
+
+hands.onResults((results) => {
+  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    const hand = results.multiHandLandmarks[0];
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    hand.forEach(pt => {
+      minX = Math.min(minX, pt.x);
+      maxX = Math.max(maxX, pt.x);
+      minY = Math.min(minY, pt.y);
+      maxY = Math.max(maxY, pt.y);
+    });
+
+    const boxW = maxX - minX;
+    const boxH = maxY - minY;
+    const handSize = Math.max(boxW, boxH);
+
+    scaleFactor = 0.4 + handSize * 3.0;
+
+    // 🔥 火花触发（手变大快速靠近时）
+    if (handSize > 0.28) {
+      for (let i = 0; i < 40; i++) {
+        sparks.push({
+          x: canvas.width/2,
+          y: canvas.height/2,
+          vx: (Math.random()*2-1)*6,
+          vy: (Math.random()*2-1)*6,
+          life: 30
+        });
+      }
+    }
+  }
+});
+
+const camera = new Camera(video, {
+  onFrame: async () => {
+    await hands.send({ image: video });
+  },
+  facingMode: "user",
+  width: 640,
+  height: 480
+});
+
+camera.start();
+
+// ==== 粒子圣诞树创建 ====
+
+const particles = [];
+const totalParticles = 2600;  // 增加粒子数量
+
+function createParticle() {
+  const y = Math.random(); // 0 → 1 从树顶到底
+  const spread = y * 200;
+
+  return {
+    x: canvas.width / 2 + (Math.random() * 2 - 1) * spread,
+    y: canvas.height * 0.1 + y * (canvas.height * 0.7),
+    size: 1 + Math.random() * 2,
+    alpha: 0.4 + Math.random() * 0.6,
+    color: `rgba(${40 + Math.random()*30}, ${160 + Math.random()*50}, ${40 + Math.random()*40},`
+  };
+}
+
+for (let i = 0; i < totalParticles; i++) {
+  particles.push(createParticle());
+}
+
+// ==== 添加星星与灯光粒子 ====
+
+const starParticles = [];
+const starCount = 80;
+
+function createStarParticle() {
+  return {
+    x: canvas.width / 2 + (Math.random() * 16 - 8),
+    y: 65 + Math.random() * 20,
+    size: 2 + Math.random() * 2,
+    alpha: 0.7 + Math.random() * 0.3,
+    twinkleSpeed: Math.random() * 0.04 + 0.02,
+    color: "rgba(255, 255, 180,"
+  };
+}
+
+for (let i = 0; i < starCount; i++) {
+  starParticles.push(createStarParticle());
+}
+
+const lightParticles = [];
+const lightColors = [
+  "rgba(255, 80, 80,",
+  "rgba(80, 170, 255,",
+  "rgba(255, 220, 80,",
+  "rgba(120, 255, 120,"
+];
+const lightCount = 160;
+
+function createLightParticle() {
+  const y = Math.random();
+  const spread = y * 180;
+
+  return {
+    x: canvas.width / 2 + (Math.random() * 2 - 1) * spread,
+    y: canvas.height * 0.15 + y * (canvas.height * 0.65),
+    size: 2.5,
+    alpha: 0.3 + Math.random() * 0.7,
+    color: lightColors[Math.floor(Math.random() * lightColors.length)],
+    blinkSpeed: Math.random() * 0.05 + 0.02
+  };
+}
+
+for (let i = 0; i < lightCount; i++) {
+  lightParticles.push(createLightParticle());
+}
+
+// ---- 背景雪粒子 ----
+const snow = [];
+for (let i = 0; i < 150; i++) {
+  snow.push({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    r: Math.random() * 2 + 1,
+    speed: Math.random() * 1 + 0.5,
+    alpha: Math.random() * 0.8 + 0.2
+  });
+}
+
+const sparks = [];
+
+function animate() {
+  const t = Date.now() * 0.0005;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.save();
+  ctx.translate(canvas.width/2, canvas.height/2);
+  ctx.rotate(0);  // 移除旋转，保持正向
+  ctx.scale(scaleFactor, scaleFactor);
+  ctx.translate(-canvas.width/2, -canvas.height/2);
+
+  // ✨ 模糊光晕
+  ctx.shadowBlur = 10;  // 降低模糊强度提升流畅度
+  ctx.shadowColor = "rgba(80,255,160,0.7)";
+
+  particles.forEach(p => {
+    p.x += Math.sin(t + p.y * 0.01) * 0.06;  // 再减小摆动幅度
+    ctx.fillStyle = p.color + p.alpha + ")";
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+
+    p.alpha += (Math.random() - 0.5) * 0.03;
+    p.alpha = Math.max(0.2, Math.min(1, p.alpha));
+  });
+
+  const starOffsetX = Math.sin(t) * 1; // 减小星星摆动幅度
+  // 绘制真实五角星（交错内外点）
+  ctx.save();
+  ctx.translate(canvas.width / 2 + starOffsetX, canvas.height * 0.11); // 星星位置（随树摆动）
+  ctx.scale(1.4, 1.4);
+
+  ctx.beginPath();
+  const outerR = 20;
+  const innerR = 8;
+  for (let i = 0; i < 10; i++) {
+    const angle = (i * 36 - 90) * Math.PI / 180;
+    const r = i % 2 === 0 ? outerR : innerR;
+    const x = Math.cos(angle) * r;
+    const y = Math.sin(angle) * r;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+
+  ctx.fillStyle = "rgba(255, 255, 180, 1)";
+  ctx.shadowBlur = 30;   // 降低星星模糊以提升性能
+  ctx.shadowColor = "rgba(255,255,200,0.9)";
+  ctx.fill();
+
+  ctx.restore();
+
+  // 绘制彩灯粒子
+  lightParticles.forEach(l => {
+    ctx.fillStyle = l.color + l.alpha + ")";
+    ctx.beginPath();
+    ctx.arc(l.x, l.y, l.size, 0, Math.PI * 2);
+    ctx.fill();
+
+    l.alpha += l.blinkSpeed * (Math.random() - 0.5);
+    if (l.alpha > 1) l.alpha = 1;
+    if (l.alpha < 0.2) l.alpha = 0.2;
+  });
+
+  // 🔥 火花渲染
+  for (let i = sparks.length - 1; i >= 0; i--) {
+    const s = sparks[i];
+    ctx.fillStyle = "rgba(255,200,80," + (s.life / 30) + ")";
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    s.x += s.vx;
+    s.y += s.vy;
+    s.life--;
+    if (s.life <= 0) sparks.splice(i,1);
+  }
+
+  // ❄️ 背景飘雪
+  snow.forEach(s => {
+    ctx.fillStyle = "rgba(255,255,255," + s.alpha + ")";
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+    s.y += s.speed;
+    if (s.y > canvas.height) {
+      s.y = -10;
+      s.x = Math.random() * canvas.width;
+    }
+  });
+
+  ctx.restore();
+
+  requestAnimationFrame(animate);
+}
+
+animate();
+
+</script>
+
+</body>
+</html>
