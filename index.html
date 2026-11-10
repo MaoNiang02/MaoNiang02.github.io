@@ -6,8 +6,8 @@
 <title>交互式粒子圣诞树 | 手势控制</title>
 <meta name="description" content="使用摄像头手势控制的交互式粒子圣诞树，手靠近树变大，远离树变小，支持火花特效和飘雪背景">
 <meta name="keywords" content="粒子特效, 圣诞树, 手势识别, 交互式, 摄像头, MediaPipe, 网页特效">
-<meta name="author" content="Your Name">
-<link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+<meta name="theme-color" content="#02040a">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -256,45 +256,84 @@
       margin-bottom: 20px;
     }
   }
+
+  [hidden] { display: none !important; }
+  button { min-height: 44px; touch-action: manipulation; }
+  button:focus-visible { outline: 3px solid #fff0b5; outline-offset: 4px; }
+  button:disabled { cursor: wait; opacity: 0.65; }
+  #introPage { background: rgba(2, 4, 10, 0.94); padding: 24px; }
+  .intro-card { width: min(100%, 520px); margin: auto; }
+  #introPage h1 { font-size: clamp(26px, 5vw, 36px); color: #9bd8ff; margin: 12px 0 20px; }
+  #introPage .eyebrow { letter-spacing: 0.22em; color: #c6d2e4; font-size: 12px; }
+  #introPage p { line-height: 1.7; }
+  .gestures { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 22px 0; }
+  .gesture { padding: 12px 8px; border: 1px solid #26384a; border-radius: 10px; background: #101c29; }
+  .gesture strong { display: block; font-size: 16px; color: #e4f3ff; }
+  .gesture span { font-size: 14px; color: #c1cedc; }
+  #introPage .privacy { font-size: 14px; color: #c1cedc; }
+  .intro-actions { display: flex; flex-direction: column; gap: 12px; margin-top: 22px; }
+  #introPage button { margin: 0; background: #9bd8ff; color: #092236; font-weight: 600; }
+  #introPage button:hover { background: #c2e8ff; }
+  #introPage .secondary { color: #e4f3ff; background: #1a2939; border: 1px solid #40546b; }
+  #introPage .secondary:hover { background: #263b50; }
+  #cameraError { color: #ffd2cc; background: #382020; border-radius: 8px; padding: 12px; text-align: left; font-size: 14px; }
+  #introPage .shortcut-hint { margin-top: 18px; font-size: 12px; color: #b1bfd0; }
+  #controlPanel { flex-direction: row; flex-wrap: wrap; max-width: calc(100vw - 130px); }
+  .controlBtn { background: #213e55; color: #f0f7ff; min-width: 92px; transition: background 0.2s; }
+  .controlBtn:hover { background: #31556f; transform: none; }
+  .controlBtn.pause { background: #624037; }
+  #cameraStatus { position: fixed; bottom: max(24px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); padding: 10px 16px; color: #e2edf9; background: rgba(10, 24, 38, 0.92); border: 1px solid #30445b; border-radius: 24px; font-size: 13px; text-align: center; z-index: 101; line-height: 1.5; pointer-events: none; }
+  #loading { z-index: 10000; width: min(360px, calc(100% - 40px)); text-align: center; color: #c2e8ff; pointer-events: none; }
+  #videoFeed { opacity: 0.6; }
+  #mobileWarning { bottom: 88px; }
+  @media (max-width: 480px) {
+    #controlPanel { top: max(12px, env(safe-area-inset-top)); width: calc(100% - 24px); max-width: none; gap: 8px; }
+    .controlBtn { min-width: 0; font-size: 12px; padding: 8px; }
+    #fpsDisplay { top: 70px; right: 12px; }
+    #introPage { padding: 24px 20px; }
+    #videoFeed { bottom: 84px; right: 12px; }
+    #cameraStatus { bottom: max(20px, env(safe-area-inset-bottom)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; }
+  }
 </style>
 </head>
 
 <body>
-<div id="introPage">
-  <div>
-    <h2>✨ 粒子圣诞树使用说明 ✨</h2>
-    <p>📌 请确保摄像头已开启，把手放到摄像头前即可互动：</p>
-    <p>🖐 手靠近摄像头：树变大</p>
-    <p>🖐 手远离摄像头：树变小</p>
-    <p>↔️ 手左右移动：树左右移动</p>
-    <p>↕️ 手上下移动：树上下移动</p>
-    <p>🔥 快速靠近摄像头：触发火花特效</p>
-    <p>❄️ 背景会自动飘雪</p>
-    <p>⭐ 星星位置会自动同步树体摆动</p>
-    <p style="color: #3fa9f5; margin-top: 20px;">
-      提示：左上角可控制暂停/播放，右上角显示FPS
-    </p>
+<section id="introPage" aria-labelledby="introTitle">
+  <div class="intro-card">
+    <p class="eyebrow">用手势，点亮冬日</p>
+    <h1 id="introTitle">你的粒子圣诞树</h1>
+    <p>让指尖的移动，变成一树星光。</p>
+    <div class="gestures" aria-label="手势操作说明">
+      <div class="gesture"><strong>靠近 / 远离</strong><span>放大或缩小圣诞树</span></div>
+      <div class="gesture"><strong>上下 / 左右</strong><span>带着星光一起移动</span></div>
+    </div>
+    <p class="privacy">只有选择手势体验，才会申请摄像头权限。<br>暂停或切换页面时会关闭摄像头，不使用麦克风。</p>
+    <p class="privacy">手势功能需联网加载 MediaPipe；视频帧交给浏览器内的识别库处理。</p>
+    <p id="cameraError" role="alert" hidden></p>
+    <div class="intro-actions">
+      <button id="startBtn" type="button">开启摄像头，开始体验</button>
+      <button id="demoBtn" class="secondary" type="button">仅观看演示 · 无需摄像头</button>
+    </div>
+    <p class="shortcut-hint">空格：暂停 / 继续 · P：切换画质 · Esc：返回说明</p>
   </div>
-  <button onclick="closeIntro()">
-    我知道了，开始体验！
-  </button>
+</section>
+
+<div id="controlPanel" aria-label="体验控制" hidden>
+  <button id="pauseBtn" class="controlBtn" type="button" aria-pressed="false">暂停体验</button>
+  <button id="cameraBtn" class="controlBtn" type="button">开启手势</button>
+  <button id="performanceBtn" class="controlBtn" type="button" aria-pressed="false">性能模式</button>
 </div>
 
-<div id="controlPanel">
-  <button id="pauseBtn" class="controlBtn" onclick="togglePause()">暂停动画</button>
-  <button id="performanceBtn" class="controlBtn" onclick="togglePerformanceMode()">性能模式</button>
-</div>
+<div id="fpsDisplay" aria-label="动画帧率">FPS: 0</div>
+<div id="mobileWarning" hidden>性能模式已开启，粒子数量已降低</div>
+<p id="cameraStatus" role="status" aria-live="polite">摄像头未开启 · 可选择手势或演示</p>
+<div id="loading" role="status" hidden>请在浏览器提示中选择是否允许摄像头</div>
 
-<div id="fpsDisplay">FPS: 0</div>
-<div id="mobileWarning">⚠️ 移动端性能有限，已自动降低粒子数量</div>
-<div id="loading">正在加载摄像头和手势识别...</div>
-
-<canvas id="treeCanvas"></canvas>
-<video id="videoFeed" autoplay playsinline muted></video>
-
-<!-- 使用稳定的CDN链接 -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1646424815/camera_utils.min.js"></script>
+<canvas id="treeCanvas" aria-label="可用手势控制的粒子圣诞树"></canvas>
+<video id="videoFeed" autoplay playsinline muted aria-label="摄像头预览" hidden></video>
 
 <script>
 // ====== 全局变量和配置 ======
@@ -309,8 +348,7 @@ const mobileWarning = document.getElementById("mobileWarning");
 // 性能配置
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 let performanceMode = isMobile;
-let isPaused = false;
-let animationRunning = true;
+let isPaused = true;
 let cameraStarted = false;
 
 // 动态粒子数量
@@ -321,115 +359,57 @@ const getParticleCount = () => {
   return Math.min(2600, Math.floor(window.innerWidth * window.innerHeight / 400));
 };
 
-// ====== 确保Camera类可用 ======
-// 如果Camera类未定义，创建自定义实现
-if (typeof Camera === 'undefined') {
-  console.log('创建自定义Camera类');
-  window.Camera = class Camera {
-    constructor(videoElement, options) {
-      this.video = videoElement;
-      this.onFrame = options.onFrame;
-      this.facingMode = options.facingMode || 'user';
-      this.width = options.width || 640;
-      this.height = options.height || 480;
-      this.stream = null;
-      this.isRunning = false;
-    }
-    
-    async start() {
-      try {
-        console.log('开始获取摄像头权限...');
-        const constraints = {
-          video: {
-            facingMode: this.facingMode,
-            width: { ideal: this.width },
-            height: { ideal: this.height }
-          },
-          audio: false
-        };
-        
-        this.stream = await navigator.mediaDevices.getUserMedia(constraints);
-        console.log('摄像头权限获取成功');
-        
-        this.video.srcObject = this.stream;
-        
-        // 等待视频准备就绪
-        await new Promise((resolve, reject) => {
-          this.video.onloadedmetadata = () => {
-            console.log('视频元数据加载完成');
-            this.video.play().then(() => {
-              console.log('视频开始播放');
-              this.isRunning = true;
-              this.processFrames();
-              resolve();
-            }).catch(reject);
-          };
-          
-          this.video.onerror = reject;
-          
-          // 超时处理
-          setTimeout(() => {
-            if (!this.isRunning) {
-              reject(new Error('视频加载超时'));
-            }
-          }, 5000);
-        });
-        
-        return this;
-      } catch (error) {
-        console.error('Camera启动失败:', error);
-        this.isRunning = false;
-        throw error;
-      }
-    }
-    
-    processFrames() {
-      const processFrame = async () => {
-        if (this.isRunning && this.video.readyState >= 2) {
-          try {
-            await this.onFrame();
-          } catch (error) {
-            console.warn('处理帧时出错:', error);
-          }
-          requestAnimationFrame(processFrame);
-        }
-      };
-      processFrame();
-    }
-    
-    stop() {
-      this.isRunning = false;
-      if (this.stream) {
-        this.stream.getTracks().forEach(track => {
-          track.stop();
-        });
-        this.stream = null;
-      }
-    }
-  };
-}
-
-// ====== 初始化画布 ======
+// ====== 画布与延迟加载的手势识别 ======
 function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 }
-window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
-// ====== 手势识别设置 ======
-const hands = new Hands({
-  locateFile: (file) => {
-    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`;
-  }
-});
-
-hands.setOptions({
-  maxNumHands: 1,
-  modelComplexity: performanceMode ? 0 : 1,
-  minDetectionConfidence: 0.5,
-  minTrackingConfidence: 0.5
-});
+let hands = null;
+let handsLoading = null;
+const HANDS_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/';
+function ensureHands() {
+  if (hands) return Promise.resolve(hands);
+  if (handsLoading) return handsLoading;
+  handsLoading = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    let timer;
+    const fail = () => {
+      clearTimeout(timer);
+      script.remove();
+      reject(new Error('ModelLoadError'));
+    };
+    script.src = HANDS_BASE + 'hands.min.js';
+    script.onload = () => {
+      clearTimeout(timer);
+      try {
+        const instance = new Hands({ locateFile: file => HANDS_BASE + file });
+        instance.setOptions({
+          maxNumHands: 1, modelComplexity: 0,
+          minDetectionConfidence: 0.5, minTrackingConfidence: 0.5
+        });
+        instance.onResults(results => {
+          if (instance === hands && cameraStarted && !isPaused && resultEpoch === cameraEpoch &&
+              results.multiHandLandmarks?.length) {
+            particleSystem.updateFromHandData(results.multiHandLandmarks[0], Date.now());
+          }
+        });
+        hands = instance;
+        resolve(instance);
+      } catch {
+        fail();
+      }
+    };
+    script.onerror = fail;
+    timer = setTimeout(fail, 15000);
+    document.head.append(script);
+  }).catch(error => {
+    handsLoading = null;
+    throw error;
+  });
+  return handsLoading;
+}
 
 // ====== 粒子系统 ======
 class ParticleSystem {
@@ -696,38 +676,6 @@ class ParticleSystem {
 // ====== 初始化系统 ======
 const particleSystem = new ParticleSystem();
 
-// ====== 手势识别回调 ======
-hands.onResults((results) => {
-  if (!isPaused && results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-    particleSystem.updateFromHandData(results.multiHandLandmarks[0], Date.now());
-  }
-});
-
-// ====== 摄像头初始化 ======
-let camera;
-function initCamera() {
-  try {
-    camera = new Camera(video, {
-      onFrame: async () => {
-        if (!isPaused && animationRunning && cameraStarted) {
-          try {
-            await hands.send({ image: video });
-          } catch (e) {
-            console.warn('手势识别处理延迟:', e);
-          }
-        }
-      },
-      facingMode: "user",
-      width: performanceMode ? 320 : 640,
-      height: performanceMode ? 240 : 480
-    });
-    console.log('Camera初始化成功');
-  } catch (error) {
-    console.error('Camera初始化失败:', error);
-    throw error;
-  }
-}
-
 // ====== FPS 计数器 ======
 class FPSCounter {
   constructor() {
@@ -775,228 +723,281 @@ class FPSCounter {
 
 const fpsCounter = new FPSCounter();
 
-// ====== 动画循环 ======
+// ====== 独立的动画循环 ======
+let animationFrame = null;
 let lastTimestamp = 0;
 function animate(timestamp) {
-  if (!lastTimestamp) lastTimestamp = timestamp;
-  const deltaTime = (timestamp - lastTimestamp) / 1000;
+  animationFrame = null;
+  if (isPaused) return;
+  const deltaTime = lastTimestamp ? Math.min((timestamp - lastTimestamp) / 1000, 0.05) : 0;
   lastTimestamp = timestamp;
-  
-  if (!isPaused) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    particleSystem.update(deltaTime);
-    particleSystem.draw();
-    
-    fpsCounter.update(timestamp);
-  }
-  
-  if (animationRunning) {
-    requestAnimationFrame(animate);
-  }
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  particleSystem.update(deltaTime);
+  particleSystem.draw();
+  fpsCounter.update(timestamp);
+  animationFrame = requestAnimationFrame(animate);
 }
 
-// ====== 控制函数 ======
-function closeIntro() {
-  document.getElementById('introPage').style.display = 'none';
-  if (!animationRunning) {
-    animationRunning = true;
-    requestAnimationFrame(animate);
-  }
+function resumeAnimation() {
+  isPaused = false;
+  lastTimestamp = 0;
+  fpsCounter.lastTime = fpsCounter.lastUpdate = performance.now();
+  fpsCounter.frameCount = 0;
+  fpsCounter.frameTimes = [];
+  if (animationFrame === null) animationFrame = requestAnimationFrame(animate);
+  updateControls();
 }
 
-function togglePause() {
-  isPaused = !isPaused;
-  pauseBtn.textContent = isPaused ? '继续动画' : '暂停动画';
+// ====== 摄像头生命周期 ======
+const introPage = document.getElementById('introPage');
+const controlPanel = document.getElementById('controlPanel');
+const startBtn = document.getElementById('startBtn');
+const cameraBtn = document.getElementById('cameraBtn');
+const demoBtn = document.getElementById('demoBtn');
+const cameraStatus = document.getElementById('cameraStatus');
+const cameraError = document.getElementById('cameraError');
+const performanceBtn = document.getElementById('performanceBtn');
+let stream = null;
+let cameraEpoch = 0;
+let resultEpoch = -1;
+let cameraPending = false;
+let trackingFrame = null;
+let trackingBusy = false;
+let mode = 'demo';
+
+function setStatus(message) {
+  cameraStatus.textContent = message;
+}
+function updateControls() {
+  startBtn.disabled = cameraPending;
+  cameraBtn.disabled = cameraPending;
+  startBtn.textContent = cameraPending ? '正在请求摄像头…' :
+    (cameraError.hidden ? '开启摄像头，开始体验' : '重试开启摄像头');
+  cameraBtn.textContent = cameraPending ? '正在开启…' : cameraStarted ? '关闭手势' : '开启手势';
+  pauseBtn.textContent = cameraPending && mode === 'gesture' ? '取消开启' : isPaused ? '继续体验' : '暂停体验';
+  pauseBtn.setAttribute('aria-pressed', String(isPaused));
   pauseBtn.classList.toggle('pause', isPaused);
-  
-  if (isPaused) {
-    video.style.opacity = '0.1';
-  } else {
-    video.style.opacity = '0.25';
+  performanceBtn.textContent = performanceMode ? '切换高画质' : '性能模式';
+  performanceBtn.setAttribute('aria-pressed', String(performanceMode));
+  mobileWarning.hidden = !performanceMode || !introPage.hidden;
+  mobileWarning.style.display = mobileWarning.hidden ? 'none' : 'block';
+}
+function releaseStream(mediaStream) {
+  mediaStream?.getTracks().forEach(track => track.stop());
+}
+function stopCamera() {
+  // 让尚未完成的权限、播放、识别任务失效，迟到的媒体流也会立即关闭。
+  cameraEpoch++;
+  cameraStarted = false;
+  if (trackingFrame !== null) cancelAnimationFrame(trackingFrame);
+  trackingFrame = null;
+  releaseStream(stream);
+  stream = null;
+  video.pause();
+  video.srcObject = null;
+  video.hidden = true;
+  loading.hidden = true;
+  updateControls();
+}
+function pauseExperience(message = '已暂停 · 摄像头已关闭') {
+  isPaused = true;
+  stopCamera();
+  if (animationFrame !== null) cancelAnimationFrame(animationFrame);
+  animationFrame = null;
+  lastTimestamp = 0;
+  fpsDisplay.textContent = 'FPS: 已暂停';
+  setStatus(message);
+  updateControls();
+}
+function showExperience() {
+  introPage.hidden = true;
+  controlPanel.hidden = false;
+  updateControls();
+  pauseBtn.focus();
+}
+function showIntro() {
+  pauseExperience();
+  controlPanel.hidden = true;
+  introPage.hidden = false;
+  updateControls();
+  startBtn.focus();
+}
+function showCameraError(error) {
+  const messages = {
+    NotAllowedError: '摄像头权限未获允许。可在地址栏的网站设置中允许后重试，或选择无需摄像头的演示。',
+    PermissionDeniedError: '摄像头权限未获允许。请检查网站权限设置，或选择演示。',
+    NotFoundError: '未找到摄像头。连接设备后可重试，也可以直接观看演示。',
+    DevicesNotFoundError: '未找到摄像头。请检查设备连接，或选择演示。',
+    NotReadableError: '摄像头暂时无法使用，可能正被其他程序占用。关闭占用程序后可重试。',
+    TrackStartError: '摄像头暂时无法使用。请关闭其他使用摄像头的程序后重试。',
+    OverconstrainedError: '摄像头不支持所需配置。请尝试其他设备，或选择演示。',
+    InsecureContext: '摄像头需要 HTTPS 或 localhost。请通过安全地址访问，或选择演示。',
+    UnsupportedBrowser: '此浏览器不支持摄像头访问。可使用支持的浏览器，或选择演示。',
+    CameraEnded: '摄像头连接已中断或权限已被撤销。检查设备和权限后可重试。',
+    CameraTimeout: '摄像头或识别模型启动超时。检查网络和设备后可重试。'
+  };
+  pauseExperience('手势暂不可用 · 仍可观看演示');
+  cameraError.textContent = messages[error.name] ||
+    '手势识别加载失败。请检查网络后重试，或选择无需联网加载识别库的演示。';
+  cameraError.hidden = false;
+  introPage.hidden = false;
+  controlPanel.hidden = true;
+  updateControls();
+  demoBtn.focus();
+}
+function withTimeout(promise, duration) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new DOMException('启动超时', 'CameraTimeout')), duration);
+    })
+  ]).finally(() => clearTimeout(timer));
+}
+async function trackHands(epoch) {
+  trackingFrame = null;
+  if (epoch !== cameraEpoch || !cameraStarted || isPaused) return;
+  if (!trackingBusy && video.readyState >= 2) {
+    trackingBusy = true;
+    resultEpoch = epoch;
+    try {
+      await withTimeout(hands.send({ image: video }), 15000);
+    } catch (error) {
+      // 模型失败后重建实例，避免沿用出错的识别任务。
+      if (epoch === cameraEpoch) {
+        const failedHands = hands;
+        hands = null;
+        handsLoading = null;
+        Promise.resolve().then(() => failedHands?.close()).catch(() => {});
+        showCameraError(error);
+      }
+    } finally {
+      trackingBusy = false;
+    }
+  }
+  if (epoch === cameraEpoch && cameraStarted && !isPaused) {
+    trackingFrame = requestAnimationFrame(() => trackHands(epoch));
   }
 }
-
+async function startGesture() {
+  if (cameraPending || document.hidden) return;
+  if (!window.isSecureContext) {
+    showCameraError(new DOMException('', 'InsecureContext'));
+    return;
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    showCameraError(new DOMException('', 'UnsupportedBrowser'));
+    return;
+  }
+  stopCamera();
+  const epoch = cameraEpoch;
+  mode = 'gesture';
+  cameraPending = true;
+  cameraError.hidden = true;
+  loading.hidden = false;
+  loading.style.display = 'block';
+  loading.textContent = '请在浏览器提示中选择是否允许摄像头';
+  setStatus('等待你的摄像头授权 · 可随时选择演示');
+  updateControls();
+  try {
+    const acquired = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false
+    });
+    if (epoch !== cameraEpoch || document.hidden) {
+      releaseStream(acquired);
+      return;
+    }
+    stream = acquired;
+    video.srcObject = stream;
+    stream.getVideoTracks().forEach(track => track.addEventListener('ended', () => {
+      if (epoch === cameraEpoch) showCameraError(new DOMException('', 'CameraEnded'));
+    }, { once: true }));
+    loading.textContent = '摄像头已连接，正在加载手势识别…';
+    await withTimeout(video.play(), 10000);
+    if (epoch !== cameraEpoch || document.hidden) return;
+    await ensureHands();
+    if (epoch !== cameraEpoch || document.hidden) return;
+    cameraStarted = true;
+    video.hidden = false;
+    showExperience();
+    resumeAnimation();
+    setStatus('手势已开启 · 暂停时关闭摄像头');
+    trackingFrame = requestAnimationFrame(() => trackHands(epoch));
+  } catch (error) {
+    if (epoch === cameraEpoch) showCameraError(error);
+  } finally {
+    cameraPending = false;
+    // 旧任务结束时，不覆盖用户已经选择的演示或暂停状态。
+    if (epoch === cameraEpoch) loading.hidden = true;
+    updateControls();
+  }
+}
+function startDemo() {
+  stopCamera();
+  mode = 'demo';
+  cameraError.hidden = true;
+  showExperience();
+  resumeAnimation();
+  setStatus('演示模式 · 摄像头已关闭');
+}
+function togglePause() {
+  if (!isPaused || (cameraPending && mode === 'gesture')) {
+    pauseExperience();
+  } else if (mode === 'gesture') {
+    startGesture();
+  } else {
+    resumeAnimation();
+    setStatus('演示模式 · 摄像头已关闭');
+  }
+}
 function togglePerformanceMode() {
   performanceMode = !performanceMode;
   particleSystem.initializeParticles();
-  
-  const performanceBtn = document.getElementById('performanceBtn');
-  performanceBtn.textContent = performanceMode ? '画质模式' : '性能模式';
-  performanceBtn.title = performanceMode ? '切换到更高画质' : '切换到更好性能';
-  
-  if (performanceMode) {
-    hands.setOptions({ modelComplexity: 0 });
-    if (camera) {
-      camera.width = 320;
-      camera.height = 240;
-    }
-    mobileWarning.style.display = 'block';
-  } else {
-    hands.setOptions({ modelComplexity: 1 });
-    if (camera) {
-      camera.width = 640;
-      camera.height = 480;
-    }
-    mobileWarning.style.display = 'none';
-  }
+  if (isPaused) drawStill();
+  updateControls();
+}
+function drawStill() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  particleSystem.draw();
 }
 
-// ====== 启动一切 ======
-async function init() {
-  try {
-    loading.style.display = 'block';
-    console.log('开始初始化...');
-    
-    // 检查浏览器支持
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      const errorMsg = '浏览器不支持getUserMedia API';
-      console.error(errorMsg);
-      alert('您的浏览器不支持摄像头功能，请使用最新版Chrome、Edge或Firefox浏览器。');
-      loading.style.display = 'none';
-      return;
-    }
-    
-    console.log('浏览器支持正常，开始检查摄像头...');
-    
-    // 初始化摄像头
-    initCamera();
-    
-    // 启动摄像头
-    try {
-      await camera.start();
-      cameraStarted = true;
-      console.log('摄像头启动成功');
-    } catch (error) {
-      console.error('摄像头启动失败:', error);
-      throw error;
-    }
-    
-    // 如果是移动设备，显示警告
-    if (isMobile) {
-      performanceMode = true;
-      const performanceBtn = document.getElementById('performanceBtn');
-      performanceBtn.textContent = '画质模式';
-      particleSystem.initializeParticles();
-      mobileWarning.style.display = 'block';
-      
-      // 移动端自动隐藏说明页
-      setTimeout(() => {
-        if (document.getElementById('introPage').style.display !== 'none') {
-          closeIntro();
-        }
-      }, 3000);
-    }
-    
-    // 启动动画循环
-    requestAnimationFrame(animate);
-    
-    loading.style.display = 'none';
-    console.log('粒子圣诞树初始化完成！');
-    
-  } catch (error) {
-    console.error('初始化失败:', error);
-    loading.style.display = 'none';
-    
-    let errorMsg = '摄像头初始化失败：';
-    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-      errorMsg = '❌ 摄像头权限被拒绝\n\n请点击地址栏的摄像头图标，允许此网站使用摄像头，然后刷新页面。';
-    } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-      errorMsg = '❌ 未找到摄像头设备\n\n请确保您的设备已连接摄像头，并已启用摄像头权限。';
-    } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-      errorMsg = '❌ 摄像头被其他程序占用\n\n请关闭其他使用摄像头的程序（如Zoom、微信等），然后刷新页面。';
-    } else if (error.name === 'OverconstrainedError') {
-      errorMsg = '❌ 摄像头配置不匹配\n\n请尝试使用其他浏览器或检查摄像头设置。';
-    } else {
-      errorMsg += error.message;
-    }
-    
-    // 显示友好的错误提示
-    const introPage = document.getElementById('introPage');
-    introPage.innerHTML = `
-      <div style="max-width: 500px;">
-        <h2 style="color: #ff6b6b;">❌ 摄像头初始化失败</h2>
-        <p style="text-align: left; margin: 20px 0; line-height: 1.6; white-space: pre-line;">${errorMsg}</p>
-        <div style="background: rgba(255,0,0,0.1); padding: 15px; border-radius: 8px; margin: 20px 0; text-align: left;">
-          <p style="margin: 5px 0;">💡 解决方案：</p>
-          <p style="margin: 5px 0;">1. 检查浏览器摄像头权限设置</p>
-          <p style="margin: 5px 0;">2. 确保没有其他程序占用摄像头</p>
-          <p style="margin: 5px 0;">3. 尝试使用 Chrome 或 Edge 浏览器</p>
-          <p style="margin: 5px 0;">4. 刷新页面重试</p>
-        </div>
-        <button onclick="location.reload()" style="margin-top: 20px;">
-          🔄 刷新页面重试
-        </button>
-        <button onclick="closeIntro()" style="margin-top: 10px; background: #666;">
-          👁️ 仅观看演示（无手势控制）
-        </button>
-      </div>
-    `;
-    introPage.style.display = 'flex';
-  }
-}
-
-// ====== 事件监听 ======
-window.addEventListener('load', init);
-
+startBtn.addEventListener('click', startGesture);
+demoBtn.addEventListener('click', startDemo);
+pauseBtn.addEventListener('click', togglePause);
+performanceBtn.addEventListener('click', togglePerformanceMode);
+cameraBtn.addEventListener('click', () => {
+  if (cameraStarted) startDemo();
+  else startGesture();
+});
 window.addEventListener('resize', () => {
   resizeCanvas();
   particleSystem.initializeParticles();
+  if (isPaused) drawStill();
 });
-
-window.addEventListener('blur', () => {
-  if (!isPaused) {
-    isPaused = true;
-    pauseBtn.textContent = '继续动画';
-    pauseBtn.classList.add('pause');
-    video.style.opacity = '0.1';
-  }
-});
-
-window.addEventListener('focus', () => {
-  if (isPaused) {
-    isPaused = false;
-    pauseBtn.textContent = '暂停动画';
-    pauseBtn.classList.remove('pause');
-    video.style.opacity = '0.25';
-  }
-});
-
-// 防止右键菜单
-canvas.addEventListener('contextmenu', e => e.preventDefault());
-
-// 键盘快捷键
-document.addEventListener('keydown', (e) => {
-  if (e.code === 'Space') {
-    e.preventDefault();
-    togglePause();
-  }
-  if (e.code === 'KeyP') {
-    e.preventDefault();
-    togglePerformanceMode();
-  }
-  if (e.code === 'Escape' && document.getElementById('introPage').style.display === 'none') {
-    document.getElementById('introPage').style.display = 'flex';
-  }
-});
-
-// 触摸设备支持
-canvas.addEventListener('touchstart', (e) => {
-  e.preventDefault();
-  if (e.touches.length === 2) {
-    togglePerformanceMode();
-  }
-});
-
-// 页面可见性API
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && !isPaused) {
-    isPaused = true;
-    pauseBtn.textContent = '继续动画';
-    pauseBtn.classList.add('pause');
-    video.style.opacity = '0.1';
+  if (document.hidden) pauseExperience('已离开页面 · 摄像头已关闭，返回后请点击继续');
+});
+window.addEventListener('pagehide', () => pauseExperience());
+document.addEventListener('keydown', event => {
+  // 保留按钮的原生空格/回车行为，避免双重触发和输入时误触快捷键。
+  if (event.repeat || event.ctrlKey || event.metaKey || event.altKey ||
+      event.target.closest('button, input, textarea, select, [contenteditable]')) return;
+  if (event.code === 'Escape' && introPage.hidden) {
+    event.preventDefault();
+    showIntro();
+  } else if (introPage.hidden && event.code === 'Space') {
+    event.preventDefault();
+    togglePause();
+  } else if (introPage.hidden && event.code === 'KeyP') {
+    event.preventDefault();
+    togglePerformanceMode();
   }
 });
+
+drawStill();
+updateControls();
 </script>
 </body>
 </html>
+
